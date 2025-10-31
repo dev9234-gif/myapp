@@ -1,6 +1,11 @@
 pipeline {
   agent any
 
+  environment {
+    DOCKER_REGISTRY_CREDS = credentials('3b627d43-bb15-43b3-971d-d7fb06f90c6b')  // 👈 use your actual credential ID
+    DOCKER_BFLASK_IMAGE = "dev9234/testtrivy"
+  }
+
   stages {
     stage('Build') {
       steps {
@@ -8,19 +13,26 @@ pipeline {
         sh 'docker tag my-flask-app $DOCKER_BFLASK_IMAGE'
       }
     }
+
     stage('Deploy') {
       steps {
-        withCredentials([usernamePassword(credentialsId: "$DOCKER_REGISTRY_CREDS", passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+        withCredentials([
+          usernamePassword(
+            credentialsId: '3b627d43-bb15-43b3-971d-d7fb06f90c6b',  // 👈 use same ID
+            usernameVariable: 'DOCKER_USERNAME',
+            passwordVariable: 'DOCKER_PASSWORD'
+          )
+        ]) {
           sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin docker.io"
           sh 'docker push $DOCKER_BFLASK_IMAGE'
         }
       }
     }
   }
+
   post {
     always {
       sh 'docker logout'
     }
   }
 }
-
