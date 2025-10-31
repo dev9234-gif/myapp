@@ -1,0 +1,44 @@
+pipeline {
+  agent any
+
+
+  environment {
+    DOCKER_REGISTRY_CREDS = credentials('3b627d43-bb15-43b3-971d-d7fb06f90c6b')  // 👈 use your actual credential ID
+    DOCKER_BFLASK_IMAGE = "dev9234/testtrivy"
+  }
+
+
+  stages {
+    stage('Build') {
+      steps {
+        sh 'docker build -t ${IMAGE_NAME} .'
+        sh 'docker tag ${IMAGE_NAME} $DOCKER_BFLASK_IMAGE'
+      }
+    }
+
+    stage('Trivy Scan') {
+      steps {
+        // Run Trivy scan on the built image
+        sh '''
+          echo "Running Trivy scan..."
+          trivy image --exit-code 1 --severity HIGH,CRITICAL $DOCKER_BFLASK_IMAGE || true
+        '''
+      }
+    }
+
+    stage('Deploy') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: "${DOCKER_REGISTRY_CREDS}", passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+          sh "echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin docker.io"
+          sh 'docker push $DOCKER_BFLASK_IMAGE'
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker logout'
+    }
+  }
+}
